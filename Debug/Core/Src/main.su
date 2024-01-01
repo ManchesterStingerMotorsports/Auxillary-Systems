@@ -1,0 +1,11 @@
+../Core/Src/main.c:96:6:HAL_CAN_RxFifo0MsgPendingCallback	16	static
+../Core/Src/main.c:116:5:main	64	static
+../Core/Src/main.c:177:6:SystemClock_Config	88	static
+../Core/Src/main.c:224:13:MX_ADC1_Init	24	static
+../Core/Src/main.c:285:13:MX_CAN1_Init	8	static
+../Core/Src/main.c:325:13:MX_GPIO_Init	16	static
+../Core/Src/main.c:338:6:ADC_Select_CH0	24	static
+../Core/Src/main.c:352:6:ADC_Select_CH1	24	static
+../Core/Src/main.c:366:19:poll_adc_raw	24	static
+../Core/Src/main.c:380:6:APPS_read_verify	16	static
+../Core/Src/main.c:433:6:Error_Handler	4	static,ignoring_inline_asm

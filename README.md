@@ -23,4 +23,7 @@ It needs to be assembled in the following way:
 				 /
 				 |
 				GND
-```    
+```   
+
+## Note: 
+The firmware does not currently use an RTOS. However, as we add more tasks to the auxilliary electroincs, we will eventually use one. We do not need to move CAN to a task yet as it only works as a secondary device currently. 

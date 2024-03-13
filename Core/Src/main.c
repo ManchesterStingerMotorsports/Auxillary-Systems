@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stm32f407xx.h"
@@ -146,23 +147,26 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   	  if(send_drive_en(main_struct) != 0) Error_Handler(); // First error check for CAN communication
+  	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
   while (1)
   {
-    /* USER CODE END WHILE */
-
 	  APPS_read_verify();
 
-	  // Throttle to torque to erpm set point is an integrator essentially.
-	  	  //accel = apps*scaler
-	  	  // w_set += accel * 0.1   integral(a*dt)
-	  if(main_struct.ERPM < MAX_ERPM){
-		  erpm_set_point += apps_val*ACCEL_SCALER/10; // I know magic number.
-		  //Divided by 10 because sampling time is roughly 100 ms or 0.1 sec.
-	  }
+	 	  // Throttle to torque to erpm set point is an integrator essentially.
+	 	  	  //accel = apps*scaler
+	 	  	  // w_set += accel * 0.1   integral(a*dt)
+	 	  if(main_struct.ERPM < MAX_ERPM){
+	 		  erpm_set_point += apps_val*ACCEL_SCALER/10; // I know magic number.
+	 		  //Divided by 10 because sampling time is roughly 100 ms or 0.1 sec.
+	 	  }
 
-	  set_dti_erpm(main_struct, erpm_set_point); //Sends omega_set_point
+	 	  set_dti_erpm(main_struct, erpm_set_point); //Sends omega_set_point
+	 	  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
+	 	  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
 
-	  HAL_Delay(100);  // Magic number but it is temperory. // Won't be there after we move to an RTOS
+	 	  HAL_Delay(500);  // Magic number but it is temperory. // Won't be there after we move to an RTOS
+    /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -238,7 +242,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = ENABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
@@ -322,11 +326,23 @@ static void MX_CAN1_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 /* USER CODE BEGIN MX_GPIO_Init_1 */
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : PD12 PD13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -377,32 +393,33 @@ HAL_StatusTypeDef poll_adc_raw(uint16_t* address){
 // an RTOS later
 APPS APPS_read_verify(void)
 {
-		APPS ret_val  = APPS_OK;
-	    uint16_t val_one =0; //Primary
-	    uint16_t val_two =0;
+	APPS ret_val  = APPS_OK;
+	uint16_t val_one =0; //Primary
+	uint16_t val_two =0;
 
 		//ADC1->CHSELR  = 0x01; // I would like to abstract this too. Not needed
-		ADC_Select_CH0();
-		poll_adc_raw(&val_one);
+	ADC_Select_CH0();
+	poll_adc_raw(&val_one);
 
 		//ADC1->CHSELR  = 0x02;
-		ADC_Select_CH1();
-		poll_adc_raw(&val_two);
+	ADC_Select_CH1();
+	poll_adc_raw(&val_two);
 
 		//ERROR CONDITION 1
-		if(val_one == val_two) ret_val = APPS_EQUAL;
+	if(val_one == val_two) ret_val = APPS_EQUAL;
 		//ERROR CONDITION 2
-		if(val_one == 0) ret_val = APPS_ONE_ZERO;
+	if(val_one == 0) ret_val = APPS_ONE_ZERO;
 		//ERROR CONDITION 3 and 4
-		if(val_two == 0) ret_val = (val_one == 0? APPS_BOTH_ZERO: APPS_TWO_ZERO);
-		switch(ret_val){
+	if(val_two == 0) ret_val = (val_one == 0? APPS_BOTH_ZERO: APPS_TWO_ZERO);
+
+	switch(ret_val){
 		case(APPS_OK):
-		apps_val = (val_one*1.1)/4096;  	// AAAAAAAAAAAAAAA MAGIC NUMBERS
+		apps_val = (val_one*1.1*100)/4096;  	// AAAAAAAAAAAAAAA MAGIC NUMBERS
 		apps_val -= 0.1;					// Formula to calculate based on lowside offset
 
 		break;
 		case(APPS_ONE_ZERO):
-		apps_val = (val_one*1.2)/4096;
+		apps_val = (val_one*1.2*100)/4096;
 		apps_val -= 0.2;
 
 
@@ -420,7 +437,7 @@ APPS APPS_read_verify(void)
 		}
 
 
-		return ret_val;
+	return ret_val;
 }
 /* USER CODE END 4 */
 
@@ -428,7 +445,8 @@ APPS APPS_read_verify(void)
   * @brief  This function is executed in case of error occurrence.
   * @retval None
   */
-void Error_Handler(void){
+void Error_Handler(void)
+{
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();

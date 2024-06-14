@@ -1,0 +1,5 @@
+../Core/Src/error_handler.c:35:6:init_error_handler	2
+../Core/Src/error_handler.c:84:6:set_error	1
+../Core/Src/error_handler.c:88:10:get_error	1
+../Core/Src/error_handler.c:93:6:clear_error	1
+../Core/Src/error_handler.c:51:6:error_handler_task	5

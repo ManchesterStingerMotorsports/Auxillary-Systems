@@ -18,11 +18,15 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stm32f407xx.h"
 #include "DTI_CAN.h"
+#include "error_handler.h"
+#include "apps_core.h"
+
 
 
 /* USER CODE END Includes */
@@ -35,24 +39,11 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-// If someone new is reading this. We don't want magic numbers in our code.
-#define ADC_TIMEOUT 		1000
-//#define APPS_ONE_MUL 		0.00026862f
-//#define APPS_TWO_MUL 		0.00029304f
-#define MAX_ERPM 			65000
-#define PEDAL_TRESH 		5.0 		//At accelerator values below this, a set point of 0 erpm will be given
-#define ACCEL_SCALER		30			// Gain of the integrator
-// We can make this configurable instead of a constant
-#define PEAK_MAX_ANG_ACCEL 		9123	// Peak torque / Rotor inertia
-#define CONT_MAX_ANG_ACCEL 		3808	// Continuous torque acceleration/ Rotor inertia
-// The above needs to be verified. Might need to consider the inertia of the entire drivetrain.
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-// Write magic formulae here... We are doing this to make the code more readable
-#define MAP_ERPM(x) 		(uint32_t)(x*MAX_ERPM)
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -60,21 +51,27 @@ ADC_HandleTypeDef hadc1;
 
 CAN_HandleTypeDef hcan1;
 
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE BEGIN PV */
 
 uint8_t TxData[8];
 
 uint32_t TxMailbox;
 
-float apps_val = 0.0; //We don't need the precision of a double
+DTI_CAN controllerData = DTI_CAN_INIT; // Not sure if this needs to be here.
 
-DTI_CAN main_struct = DTI_CAN_INIT; // Not sure if this needs to be here.
 CAN_RxHeaderTypeDef   RxHeader;
 uint8_t               dti_raw_data[8];
 
+osMutexId_t oCANMutex; // CAN Mutex object
 
-// Defining this globally for now because I am lazy
-int32_t erpm_set_point = 0;
+osMessageQueueId_t oErrorMsgQueue; // Error message queue object
 
 
 /* USER CODE END PV */
@@ -84,14 +81,12 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_CAN1_Init(void);
+void StartDefaultTask(void *argument);
+
 /* USER CODE BEGIN PFP */
 
 
-void ADC_Select_CH0(void);
-void ADC_Select_CH1(void);
-HAL_StatusTypeDef poll_adc_raw(uint16_t*);
-APPS APPS_read_verify(void);
-void erpm_calc_set_point(void);
+
 
 // This is the ISR that would be called when we receive a message on CAN.
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
@@ -100,7 +95,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
   {
     Error_Handler();
   }
-  parse_CAN_message(&main_struct,(uint16_t)RxHeader.StdId,dti_raw_data);
+  parse_CAN_message(&controllerData,(uint16_t)RxHeader.StdId,dti_raw_data);
 }
 
 /* USER CODE END PFP */
@@ -144,27 +139,56 @@ int main(void)
 
   /* USER CODE END 2 */
 
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  	  if(send_drive_en(main_struct) != 0) Error_Handler(); // First error check for CAN communication
+  	  if(send_drive_en(controllerData) != 0) Error_Handler(); // First error check for CAN communication
   	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
   while (1)
   {
-	  APPS_read_verify();
 
-	 	  // Throttle to torque to erpm set point is an integrator essentially.
-	 	  	  //accel = apps*scaler
-	 	  	  // w_set += accel * 0.1   integral(a*dt)
-	 	  if(main_struct.ERPM < MAX_ERPM){
-	 		  erpm_set_point += apps_val*ACCEL_SCALER/10; // I know magic number.
-	 		  //Divided by 10 because sampling time is roughly 100 ms or 0.1 sec.
-	 	  }
 
-	 	  set_dti_erpm(main_struct, erpm_set_point); //Sends omega_set_point
-	 	  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
+
+
+
+	 	  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13); // Visual clock maybe?
 	 	  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
 
-	 	  HAL_Delay(500);  // Magic number but it is temperory. // Won't be there after we move to an RTOS
+	 	  osDelay(500);  // Magic number but it is temperory. // Won't be there after we move to an RTOS
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -349,97 +373,26 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void ADC_Select_CH0 (void)
-{
-	ADC_ChannelConfTypeDef sConfig = {0};
-	  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-	  */
-	  sConfig.Channel = ADC_CHANNEL_0;
-	  sConfig.Rank = 1;
-	  //sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES;
-	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
-}
 
-void ADC_Select_CH1 (void)
-{
-	ADC_ChannelConfTypeDef sConfig = {0};
-	  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-	  */
-	  sConfig.Channel = ADC_CHANNEL_1;
-	  sConfig.Rank = 2;
-	  //sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
-	  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
-}
-
-HAL_StatusTypeDef poll_adc_raw(uint16_t* address){
-	HAL_StatusTypeDef ret_var = HAL_OK;
-	HAL_ADC_Start(&hadc1);
-	ret_var = HAL_ADC_PollForConversion(&hadc1, ADC_TIMEOUT);
-	if(ret_var != HAL_OK){
-		return ret_var;
-	}
-	*address = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Stop(&hadc1);
-	return HAL_OK;
-}
-
-// We want to use polling instead of interrupt based operation so we can have
-// an RTOS later
-APPS APPS_read_verify(void)
-{
-	APPS ret_val  = APPS_OK;
-	uint16_t val_one =0; //Primary
-	uint16_t val_two =0;
-
-		//ADC1->CHSELR  = 0x01; // I would like to abstract this too. Not needed
-	ADC_Select_CH0();
-	poll_adc_raw(&val_one);
-
-		//ADC1->CHSELR  = 0x02;
-	ADC_Select_CH1();
-	poll_adc_raw(&val_two);
-
-		//ERROR CONDITION 1
-	if(val_one == val_two) ret_val = APPS_EQUAL;
-		//ERROR CONDITION 2
-	if(val_one == 0) ret_val = APPS_ONE_ZERO;
-		//ERROR CONDITION 3 and 4
-	if(val_two == 0) ret_val = (val_one == 0? APPS_BOTH_ZERO: APPS_TWO_ZERO);
-
-	switch(ret_val){
-		case(APPS_OK):
-		apps_val = (val_one*1.1*100)/4096;  	// AAAAAAAAAAAAAAA MAGIC NUMBERS
-		apps_val -= 0.1;					// Formula to calculate based on lowside offset
-
-		break;
-		case(APPS_ONE_ZERO):
-		apps_val = (val_one*1.2*100)/4096;
-		apps_val -= 0.2;
-
-
-		break;
-		case(APPS_TWO_ZERO):
-		apps_val = (val_one*1.1)/4096;
-		apps_val -= 0.1;
-
-
-		break;
-		default:
-			// Critical errors. We want to send to error handler.
-			//Error_Handler();
-		break;
-		}
-
-
-	return ret_val;
-}
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END 5 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

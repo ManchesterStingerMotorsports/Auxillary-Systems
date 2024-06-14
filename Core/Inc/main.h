@@ -28,7 +28,8 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
-
+#include "cmsis_os.h"
+#include "DTI_CAN.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -37,6 +38,12 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 extern CAN_HandleTypeDef hcan1;
+extern ADC_HandleTypeDef hadc1;
+extern DTI_CAN controllerData;
+
+extern osMutexId_t oCANMutex; // CAN Mutex object
+
+extern osMessageQueueId_t oErrorMsgQueue; // Error message queue object
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -59,13 +66,7 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 
 /* USER CODE BEGIN Private defines */
-typedef enum _apps{
-	APPS_OK = 0, // APPS Functioning is normal.
-	APPS_EQUAL, //Both are shorted Critical error
-	APPS_ONE_ZERO, // First value is zero
-	APPS_TWO_ZERO, // Second value is zero
-	APPS_BOTH_ZERO, // Both Zero. Critical error
-} APPS;
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

@@ -146,7 +146,7 @@ void apps_task(void* arg){
 		if(accel.state != APPS_OK){
 			// Append error message to message queue
 			apps_err.error_val = accel.state;
-			osMessagePut(oErrorMsgQueue, &apps_err, osWaitForever);
+
 			osMessageQueuePut(oErrorMsgQueue, &apps_err, 0, osWaitForever);
 		}
 		else{
@@ -169,7 +169,7 @@ void apps_task(void* arg){
 
 void init_apps(void){
 	/* APPS INIT*/
-	AccelTaskHandle = osThreadNew(apps_task, NULL, AccelTask_attributes);
+	AccelTaskHandle = osThreadNew(apps_task, NULL, &AccelTask_attributes);
 }
 
 

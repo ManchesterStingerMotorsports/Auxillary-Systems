@@ -5,7 +5,7 @@
 #include "HAL_CAN.h"
 
 /*---------- DEFINES----------------*/
-#define ECU_ID		0x14
+#define ECU_ID					0x14
 #define ERROR_QUEUE_SIZE		10 // 5 Elements
 
 
@@ -31,7 +31,7 @@ const osThreadAttr_t errorTask_attributes = {
 
 
 
-/*---------- DEFINES----------------*/
+/*---------- FUNCTIONS----------------*/
 void init_error_handler(void){
 	errorState = 0;
 	memset(canErrorMessage,0x00, 8);
@@ -84,7 +84,7 @@ void error_handler_task(void *){
 }
 
 void set_error(enum fs_component_t err){
-	errorState &= (1<<err);
+	errorState |= (1<<err);
 }
 
 uint32_t get_error(void){
@@ -93,5 +93,5 @@ uint32_t get_error(void){
 
 
 void clear_error(enum fs_component_t err){
-	errorState |= ~(1<<err);
+	errorState &= ~(1<<err);
 }

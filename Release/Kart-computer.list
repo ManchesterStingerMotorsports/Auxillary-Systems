@@ -460,7 +460,7 @@ Disassembly of section .text:
  8000612:	bd08      	pop	{r3, pc}
  8000614:	2000002c 	.word	0x2000002c
  8000618:	20000060 	.word	0x20000060
- 800061c:	200000b8 	.word	0x200000b8
+ 800061c:	200000ec 	.word	0x200000ec
 
 08000620 <StartDefaultTask>:
  8000620:	b508      	push	{r3, lr}
@@ -486,9 +486,9 @@ Disassembly of section .text:
  8000648:	e8bd 4010 	ldmia.w	sp!, {r4, lr}
  800064c:	f7ff bf3e 	b.w	80004cc <parse_CAN_message>
  8000650:	20000044 	.word	0x20000044
- 8000654:	20000068 	.word	0x20000068
- 8000658:	200000b8 	.word	0x200000b8
- 800065c:	200000e0 	.word	0x200000e0
+ 8000654:	2000009c 	.word	0x2000009c
+ 8000658:	200000ec 	.word	0x200000ec
+ 800065c:	20000064 	.word	0x20000064
 
 08000660 <SystemClock_Config>:
  8000660:	b510      	push	{r4, lr}
@@ -691,15 +691,15 @@ Disassembly of section .text:
  800085e:	e7f0      	b.n	8000842 <main+0x142>
  8000860:	40023800 	.word	0x40023800
  8000864:	40020c00 	.word	0x40020c00
- 8000868:	20000070 	.word	0x20000070
+ 8000868:	200000a4 	.word	0x200000a4
  800086c:	40012000 	.word	0x40012000
  8000870:	0f000001 	.word	0x0f000001
- 8000874:	200000b8 	.word	0x200000b8
+ 8000874:	200000ec 	.word	0x200000ec
  8000878:	40006400 	.word	0x40006400
  800087c:	0800344c 	.word	0x0800344c
  8000880:	08000621 	.word	0x08000621
- 8000884:	200000e0 	.word	0x200000e0
- 8000888:	20000064 	.word	0x20000064
+ 8000884:	20000064 	.word	0x20000064
+ 8000888:	20000098 	.word	0x20000098
 
 0800088c <Error_Handler>:
  800088c:	b672      	cpsid	i
@@ -854,7 +854,7 @@ Disassembly of section .text:
  80009d0:	4801      	ldr	r0, [pc, #4]	; (80009d8 <CAN1_RX0_IRQHandler+0x8>)
  80009d2:	f000 bb1d 	b.w	8001010 <HAL_CAN_IRQHandler>
  80009d6:	bf00      	nop
- 80009d8:	200000b8 	.word	0x200000b8
+ 80009d8:	200000ec 	.word	0x200000ec
 
 080009dc <SystemInit>:
  80009dc:	4a03      	ldr	r2, [pc, #12]	; (80009ec <SystemInit+0x10>)

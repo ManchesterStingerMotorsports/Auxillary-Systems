@@ -97,9 +97,9 @@ Discarded input sections
  .text.APPS_read_verify
                 0x0000000000000000       0xf8 ./Core/Src/apps_core.o
  .text.apps_task
-                0x0000000000000000       0xa0 ./Core/Src/apps_core.o
+                0x0000000000000000       0x94 ./Core/Src/apps_core.o
  .text.init_apps
-                0x0000000000000000        0x2 ./Core/Src/apps_core.o
+                0x0000000000000000       0x20 ./Core/Src/apps_core.o
  .rodata.str1.1
                 0x0000000000000000        0xa ./Core/Src/apps_core.o
  .bss.AccelTaskHandle
@@ -2033,19 +2033,19 @@ LOAD /home/malhaar-k/stm-dev/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-
  .bss.TxMailbox
                 0x0000000020000060        0x4 ./Core/Src/main.o
                 0x0000000020000060                TxMailbox
+ .bss.controllerData
+                0x0000000020000064       0x34 ./Core/Src/main.o
+                0x0000000020000064                controllerData
  .bss.defaultTaskHandle
-                0x0000000020000064        0x4 ./Core/Src/main.o
-                0x0000000020000064                defaultTaskHandle
+                0x0000000020000098        0x4 ./Core/Src/main.o
+                0x0000000020000098                defaultTaskHandle
  .bss.dti_raw_data
-                0x0000000020000068        0x8 ./Core/Src/main.o
-                0x0000000020000068                dti_raw_data
- .bss.hadc1     0x0000000020000070       0x48 ./Core/Src/main.o
-                0x0000000020000070                hadc1
- .bss.hcan1     0x00000000200000b8       0x28 ./Core/Src/main.o
-                0x00000000200000b8                hcan1
- .bss.main_struct
-                0x00000000200000e0       0x34 ./Core/Src/main.o
-                0x00000000200000e0                main_struct
+                0x000000002000009c        0x8 ./Core/Src/main.o
+                0x000000002000009c                dti_raw_data
+ .bss.hadc1     0x00000000200000a4       0x48 ./Core/Src/main.o
+                0x00000000200000a4                hadc1
+ .bss.hcan1     0x00000000200000ec       0x28 ./Core/Src/main.o
+                0x00000000200000ec                hcan1
  .bss.uwTick    0x0000000020000114        0x4 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.o
                 0x0000000020000114                uwTick
  .bss.Idle_Stack.2

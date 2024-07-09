@@ -1,6 +1,6 @@
-../Core/Src/apps_core.c:39:6:ADC_Select_CH0	24	static
-../Core/Src/apps_core.c:53:6:ADC_Select_CH1	24	static
-../Core/Src/apps_core.c:67:19:poll_adc_raw	16	static
-../Core/Src/apps_core.c:81:6:APPS_read_verify	24	static
-../Core/Src/apps_core.c:134:6:apps_task	80	static
-../Core/Src/apps_core.c:168:6:init_apps	0	static
+../Core/Src/apps_core.c:41:6:ADC_Select_CH0	24	static
+../Core/Src/apps_core.c:55:6:ADC_Select_CH1	24	static
+../Core/Src/apps_core.c:69:19:poll_adc_raw	16	static
+../Core/Src/apps_core.c:83:6:APPS_read_verify	24	static
+../Core/Src/apps_core.c:136:6:apps_task	80	static
+../Core/Src/apps_core.c:170:6:init_apps	8	static

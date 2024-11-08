@@ -22,9 +22,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "apps.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,12 +68,16 @@ const osThreadAttr_t Pot2_attributes = {
 };
 /* USER CODE BEGIN PV */
 
-uint16_t adc_buf[ADC_BUF_LEN];
-uint16_t adc_buf2[ADC_BUF_LEN];
-char msg[30];
-uint16_t raw1;
-uint16_t raw2;
+uint16_t adc_buf[ADC_BUF_LEN]; // buffer to store values read from pot1
+uint16_t adc_buf2[ADC_BUF_LEN]; // buffer to store values read from pot2
+char msg[30]; // to print msg on terminal
+uint16_t raw1; // pot1 value
+uint16_t raw2; // pot2 value
 char* ret_val;
+
+osTimerId_t differenceTimerHandle;  // timer to keep track of how long the APPS has a difference greater than 10%
+bool shutdown_active = false;  // Flag to indicate shutdown state
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -85,7 +91,7 @@ void pot1(void *argument);
 void pot2(void *argument);
 
 /* USER CODE BEGIN PFP */
-char* APPS_read_verify(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -128,6 +134,15 @@ int main(void)
   MX_ADC1_Init();
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
+  const osTimerAttr_t differenceTimer_attributes = {
+      .name = "differenceTimer"
+  };
+
+  // Create the timer with a periodic interval
+  // 'differenceTimerHandle' is the timer's handle, used to start/stop the timer
+  // 'DifferenceTimerCallback' is the function that will be called periodically
+  differenceTimerHandle = osTimerNew(DifferenceTimerCallback, osTimerPeriodic, NULL, &differenceTimer_attributes);
+
 
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
   HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_buf2, ADC_BUF_LEN);
@@ -429,7 +444,7 @@ static void MX_GPIO_Init(void)
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc){
 
-	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	//HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
 }
 
@@ -437,18 +452,38 @@ void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc){
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 
-	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+	//HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
 }
 
 char* APPS_read_verify(void)
 {
+
+
+	    // normal conditions
 		ret_val  = "APPS_OKAY";
 
-		if (abs(raw1 - raw2) >= 10.0){
-			ret_val = "APPS_NOT_OKAY";
-		}
 
+		// if > 10% start time to check if it has passed certain time -> if yes call shutdown circuit
+		if (abs(raw1 - raw2) >= 10) {
+	        ret_val = "APPS_NOT_OKAY";
+
+	        //########################################################
+	        // CHANGE THE TIMER TO 500 ms it's currently set at 1000ms
+	        //########################################################
+	        // Start the timer if the difference condition is met and the timer is not already running
+		     if (osTimerIsRunning(differenceTimerHandle) == 0) {
+		    	 osTimerStart(differenceTimerHandle, 1000);
+		     }
+	    } else {
+		       // Stop the timer if the difference condition is not met and the timer is running
+	        if (osTimerIsRunning(differenceTimerHandle) == 1) {
+	            osTimerStop(differenceTimerHandle);
+		    }
+	    }
+
+
+		//other conditions
 
 		if (raw1 > 91){
 			ret_val = "APPS1_GND_NOT_OKAY";
@@ -477,6 +512,27 @@ char* APPS_read_verify(void)
 		return ret_val;
 }
 
+uint16_t calculate_average(uint16_t* buffer, size_t length) {
+    uint32_t sum = 0;
+    for (size_t i = 0; i < length; i++) {
+        sum += buffer[i];
+    }
+    return (uint16_t)(sum / length);  // Return the average value
+}
+
+void DifferenceTimerCallback(void *argument)
+{
+    // Code to execute every time the timer expires (e.g., every 1000 ms)
+    // Here we simply print a message, but you could increment a counter
+    // or perform any other periodic task while the condition is met.
+	shutdown_active = true;
+	//ret_val = "Shutdown circuit !!!";
+	while(1){
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+		osDelay(50);
+	}
+
+}
 
 /* USER CODE END 4 */
 
@@ -503,7 +559,7 @@ void pot1(void *argument)
 
 		//DMA gets the ADC values - we are displaying what's in the address
 
-		raw1 = HAL_ADC_GetValue(&hadc1)*(100.0/4095.0);
+		raw1 = calculate_average(adc_buf, ADC_BUF_LEN) * (100.0 / 4095.0);
 
 		//read value
 		//sprintf(msg, "%hu\r\n", raw1);
@@ -527,14 +583,24 @@ void pot2(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  raw2 = HAL_ADC_GetValue(&hadc2)*(100.0/4095.0);
+	  if (!shutdown_active) {
+	      // Process normally when shutdown is not active
+	      raw2 = calculate_average(adc_buf2, ADC_BUF_LEN) * (100.0 / 4095.0);
+	      ret_val = APPS_read_verify();
 
-	  ret_val = APPS_read_verify();
+	      // Format and send the message to the terminal
+	      sprintf(msg, "%hu, %hu, %s\r\n", raw1, raw2, ret_val);
+	      HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
 
-	  //read value
-	  sprintf(msg, "%hu, %hu, %s\r\n", raw1, raw2, ret_val);
-	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-	  osDelay(1);
+	      osDelay(1);  // Small delay to avoid spamming
+	  } else {
+	      // If shutdown is active, only send the shutdown message
+	      sprintf(msg, "Shutdown circuit !!!\r\n");
+	      HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+
+	      // Longer delay for shutdown message to avoid spamming
+	      osDelay(1000);
+	  }
   }
   /* USER CODE END pot2 */
 }
